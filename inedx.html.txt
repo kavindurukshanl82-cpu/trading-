@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Confluence Meter</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A0D11;
+    --panel: #11151B;
+    --panel-hover: #161B24;
+    --border: #232932;
+    --border-light: #2E3540;
+    --text: #ECEFF3;
+    --text-muted: #8B93A0;
+    --text-dim: #5A6270;
+    --accent-green: #16E0A6;
+    --accent-green-dim: rgba(22,224,166,0.12);
+    --accent-amber: #FFC55C;
+    --accent-amber-dim: rgba(255,197,92,0.12);
+    --accent-red: #FF5D72;
+    --accent-red-dim: rgba(255,93,114,0.12);
+    --input-bg: #0E1217;
+    --focus-ring: rgba(22,224,166,0.4);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-xs: 4px;
+    --transition: 0.25s ease;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    padding: 28px 20px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Hero */
+  .hero {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 28px 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+  }
+
+  .hero-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .score-number {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1.5px;
+    color: var(--text);
+    transition: color var(--transition);
+  }
+
+  .score-number.green { color: var(--accent-green); }
+  .score-number.amber { color: var(--accent-amber); }
+  .score-number.red   { color: var(--accent-red); }
+
+  .verdict-pill {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid transparent;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+  }
+
+  .verdict-pill.green {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    border-color: rgba(22,224,166,0.25);
+  }
+  .verdict-pill.amber {
+    background: var(--accent-amber-dim);
+    color: var(--accent-amber);
+    border-color: rgba(255,197,92,0.25);
+  }
+  .verdict-pill.red {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+    border-color: rgba(255,93,114,0.25);
+  }
+
+  /* Bar */
+  .bar-wrap {
+    position: relative;
+    margin-bottom: 14px;
+  }
+
+  .bar-track {
+    height: 10px;
+    background: var(--input-bg);
+    border-radius: 100px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border);
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--accent-red) 0%, var(--accent-amber) 50%, var(--accent-green) 100%);
+    width: 0%;
+    transition: width var(--transition);
+    position: relative;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar-fill { transition: none; }
+    .threshold-marker { transition: none; }
+  }
+
+  .bar-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 0 2px;
+  }
+
+  .bar-tick {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    position: relative;
+  }
+
+  .threshold-marker {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--text);
+    border-radius: 1px;
+    z-index: 2;
+    transition: left var(--transition);
+    pointer-events: none;
+  }
+
+  .threshold-marker::after {
+    content: '';
+    position: absolute;
+    top: -3px; left: -3px;
+    width: 8px; height: 8px;
+    background: var(--text);
+    border-radius: 50%;
+  }
+
+  /* Threshold input */
+  .threshold-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .threshold-row label { font-weight: 500; }
+
+  .threshold-input {
+    width: 56px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 4px 6px;
+    text-align: center;
+    outline: none;
+  }
+
+  .threshold-input:focus {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  /* Panels */
+  .panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .panel-subtotal {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .panel-subtotal .sub-num {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .panel-body {
+    padding: 8px 10px;
+    flex: 1;
+  }
+
+  /* Row */
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition);
+  }
+
+  .row:hover { background: var(--panel-hover); }
+
+  .row.checked {
+    background: rgba(22,224,166,0.04);
+  }
+
+  .row.checked .row-label {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .row.checked .weight-box {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    border-color: rgba(22,224,166,0.25);
+  }
+
+  .cb-wrap {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+  }
+
+  .cb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius-xs);
+    background: var(--input-bg);
+    cursor: pointer;
+    position: relative;
+    transition: border-color var(--transition), background var(--transition);
+  }
+
+  .cb:checked {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+  }
+
+  .cb:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px; top: 2px;
+    width: 5px; height: 9px;
+    border: solid var(--bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .cb:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .row-label {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.4;
+    padding: 4px 6px;
+    border-radius: var(--radius-xs);
+    border: 1px solid transparent;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: text;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+  }
+
+  .row-label:hover {
+    border-color: var(--border);
+    background: var(--input-bg);
+  }
+
+  .row-label:focus {
+    outline: none;
+    border-color: var(--accent-green);
+    background: var(--input-bg);
+    color: var(--text);
+    white-space: normal;
+  }
+
+  .weight-box {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 2px 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+  }
+
+  .weight-input {
+    width: 32px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    text-align: right;
+    outline: none;
+    padding: 0;
+  }
+
+  .weight-input:focus {
+    color: var(--text);
+  }
+
+  .remove-btn {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-xs);
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color var(--transition), background var(--transition);
+  }
+
+  .remove-btn:hover {
+    color: var(--accent-red);
+    background: var(--accent-red-dim);
+  }
+
+  .remove-btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+
+  /* Panel footer */
+  .panel-footer {
+    padding: 10px 14px 14px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+    outline: none;
+  }
+
+  .btn:hover {
+    background: var(--panel-hover);
+    color: var(--text);
+    border-color: var(--border-light);
+  }
+
+  .btn:focus-visible {
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  .btn-add { flex: 1; }
+
+  .btn-reset {
+    font-size: 12px;
+    padding: 7px 12px;
+  }
+
+  /* Footer */
+  .app-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* Mobile */
+  @media (max-width: 520px) {
+    .score-number { font-size: 42px; }
+    .hero { padding: 20px 18px 18px; }
+    .panels { grid-template-columns: 1fr; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="hero" id="hero">
+  <div class="hero-top">
+    <div class="score-number" id="scoreNum">0%</div>
+    <div class="verdict-pill" id="verdictPill">LOW CONFLUENCE — SKIP</div>
+  </div>
+
+  <div class="bar-wrap">
+    <div class="bar-track">
+      <div class="bar-fill" id="barFill"></div>
+      <div class="threshold-marker" id="thresholdMarker"></div>
+    </div>
+    <div class="bar-ticks">
+      <span class="bar-tick">0</span>
+      <span class="bar-tick">25</span>
+      <span class="bar-tick">50</span>
+      <span class="bar-tick">75</span>
+      <span class="bar-tick">100</span>
+    </div>
+  </div>
+
+  <div class="threshold-row">
+    <label for="thresholdInput">Take-trade threshold</label>
+    <input type="number" id="thresholdInput" class="threshold-input" value="70" min="0" max="100" step="1">
+    <span>%</span>
+  </div>
+</div>
+
+<div class="panels" id="panels"></div>
+
+<div class="app-footer">
+  Trade Confluence Meter — edits save automatically
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const STORAGE_KEY = 'tradeConfluenceMeter_v1';
+
+  const defaultData = {
+    threshold: 70,
+    sections: [
+      {
+        title: 'WEEKLY / DAILY',
+        items: [
+          { label: 'At AOI / Rejected', weight: 10, checked: false },
+          { label: 'Touching EMA', weight: 5, checked: false },
+          { label: 'Candlestick rejection', weight: 10, checked: false },
+          { label: 'Rejection from previous structure point', weight: 10, checked: false },
+          { label: 'Round number / psych level', weight: 5, checked: false },
+          { label: 'Patterns', weight: 10, checked: false },
+        ]
+      },
+      {
+        title: '4HR CHECKLIST',
+        items: [
+          { label: 'Touching EMA', weight: 5, checked: false },
+          { label: 'Candlestick rejection', weight: 10, checked: false },
+          { label: 'Rejection from previous structure point', weight: 10, checked: false },
+          { label: 'Patterns', weight: 10, checked: false },
+        ]
+      },
+      {
+        title: 'DAILY / 4HR',
+        items: [
+          { label: 'At AOI / Rejected', weight: 15, checked: false },
+          { label: 'Touching EMA', weight: 5, checked: false },
+          { label: 'Candlestick rejection', weight: 10, checked: false },
+          { label: 'Rejection from previous structure point', weight: 15, checked: false },
+          { label: 'Round number / psych level', weight: 5, checked: false },
+          { label: 'Patterns', weight: 10, checked: false },
+        ]
+      }
+    ]
+  };
+
+  let state = loadState();
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(defaultData);
+      const saved = JSON.parse(raw);
+      // Merge missing sections from defaults
+      const merged = structuredClone(saved);
+      if (!merged.sections) merged.sections = [];
+      const defaultSections = structuredClone(defaultData.sections);
+      for (let i = 0; i < defaultSections.length; i++) {
+        if (!merged.sections[i]) {
+          merged.sections[i] = defaultSections[i];
+        }
+      }
+      if (typeof merged.threshold !== 'number') merged.threshold = defaultData.threshold;
+      return merged;
+    } catch (e) {
+      return structuredClone(defaultData);
+    }
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  function getSectionMax(section) {
+    return section.items.reduce((s, it) => s + (Number(it.weight) || 0), 0);
+  }
+
+  function getSectionAchieved(section) {
+    return section.items.reduce((s, it) => s + (it.checked ? (Number(it.weight) || 0) : 0), 0);
+  }
+
+  function getTotalMax() {
+    return state.sections.reduce((s, sec) => s + getSectionMax(sec), 0);
+  }
+
+  function getTotalAchieved() {
+    return state.sections.reduce((s, sec) => s + getSectionAchieved(sec), 0);
+  }
+
+  function getScore() {
+    const max = getTotalMax();
+    if (max === 0) return 0;
+    return Math.round((getTotalAchieved() / max) * 100);
+  }
+
+  function getVerdict(score, threshold) {
+    if (score >= threshold) {
+      return { text: 'HIGH-PROBABILITY SETUP', cls: 'green' };
+    }
+    if (score >= threshold - 20) {
+      return { text: 'MARGINAL — WAIT FOR MORE CONFLUENCE', cls: 'amber' };
+    }
+    return { text: 'LOW CONFLUENCE — SKIP', cls: 'red' };
+  }
+
+  // DOM refs
+  const scoreNum = document.getElementById('scoreNum');
+  const verdictPill = document.getElementById('verdictPill');
+  const barFill = document.getElementById('barFill');
+  const thresholdMarker = document.getElementById('thresholdMarker');
+  const thresholdInput = document.getElementById('thresholdInput');
+  const panelsContainer = document.getElementById('panels');
+
+  // Render panels once
+  function renderPanels() {
+    panelsContainer.innerHTML = '';
+    state.sections.forEach((section, secIdx) => {
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.dataset.sec = secIdx;
+
+      const header = document.createElement('div');
+      header.className = 'panel-header';
+      header.innerHTML = `
+        <div class="panel-title">${escapeHtml(section.title)}</div>
+        <div class="panel-subtotal">
+          <span class="sub-num" id="sub-${secIdx}">0</span> / <span id="max-${secIdx}">0</span>
+        </div>
+      `;
+      panel.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'panel-body';
+      body.id = `body-${secIdx}`;
+      panel.appendChild(body);
+
+      const footer = document.createElement('div');
+      footer.className = 'panel-footer';
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn btn-add';
+      addBtn.textContent = '+ Add item';
+      addBtn.addEventListener('click', () => addItem(secIdx));
+      footer.appendChild(addBtn);
+
+      const resetBtn = document.createElement('button');
+      resetBtn.className = 'btn btn-reset';
+      resetBtn.textContent = 'Reset defaults';
+      resetBtn.addEventListener('click', () => {
+        if (confirm('Reset this section to default checklist?')) {
+          resetSection(secIdx);
+        }
+      });
+      footer.appendChild(resetBtn);
+
+      panel.appendChild(footer);
+      panelsContainer.appendChild(panel);
+
+      renderSectionRows(secIdx);
+    });
+  }
+
+  function renderSectionRows(secIdx) {
+    const body = document.getElementById(`body-${secIdx}`);
+    if (!body) return;
+    body.innerHTML = '';
+    const section = state.sections[secIdx];
+    section.items.forEach((item, itemIdx) => {
+      const row = document.createElement('div');
+      row.className = 'row' + (item.checked ? ' checked' : '');
+      row.dataset.item = itemIdx;
+
+      const cbWrap = document.createElement('div');
+      cbWrap.className = 'cb-wrap';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'cb';
+      cb.checked = item.checked;
+      cb.addEventListener('change', () => {
+        item.checked = cb.checked;
+        row.classList.toggle('checked', item.checked);
+        updateAll();
+      });
+      cbWrap.appendChild(cb);
+      row.appendChild(cbWrap);
+
+      const label = document.createElement('div');
+      label.className = 'row-label';
+      label.contentEditable = true;
+      label.textContent = item.label;
+      label.addEventListener('blur', () => {
+        item.label = label.textContent.trim() || item.label;
+        saveState();
+      });
+      label.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); label.blur(); }
+      });
+      row.appendChild(label);
+
+      const wBox = document.createElement('div');
+      wBox.className = 'weight-box';
+      const wIn = document.createElement('input');
+      wIn.type = 'number';
+      wIn.className = 'weight-input';
+      wIn.value = item.weight;
+      wIn.min = 0;
+      wIn.max = 100;
+      wIn.step = 1;
+      wIn.addEventListener('input', () => {
+        item.weight = Number(wIn.value) || 0;
+        updateAll();
+      });
+      wBox.appendChild(wIn);
+      const pct = document.createTextNode('%');
+      wBox.appendChild(pct);
+      row.appendChild(wBox);
+
+      const rm = document.createElement('button');
+      rm.className = 'remove-btn';
+      rm.innerHTML = '&times;';
+      rm.title = 'Remove item';
+      rm.addEventListener('click', () => {
+        section.items.splice(itemIdx, 1);
+        renderSectionRows(secIdx);
+        updateAll();
+      });
+      row.appendChild(rm);
+
+      body.appendChild(row);
+    });
+  }
+
+  function addItem(secIdx) {
+    const section = state.sections[secIdx];
+    section.items.push({ label: '', weight: 5, checked: false });
+    renderSectionRows(secIdx);
+    updateAll();
+    // Focus new label
+    const body = document.getElementById(`body-${secIdx}`);
+    const rows = body.querySelectorAll('.row');
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) {
+      const lbl = lastRow.querySelector('.row-label');
+      if (lbl) { lbl.focus(); }
+    }
+  }
+
+  function resetSection(secIdx) {
+    const def = structuredClone(defaultData.sections[secIdx]);
+    if (!def) return;
+    state.sections[secIdx] = def;
+    renderSectionRows(secIdx);
+    updateAll();
+  }
+
+  function updateAll() {
+    const score = getScore();
+    const threshold = Number(thresholdInput.value) || 0;
+    const verdict = getVerdict(score, threshold);
+
+    scoreNum.textContent = score + '%';
+    scoreNum.className = 'score-number ' + verdict.cls;
+
+    verdictPill.textContent = verdict.text;
+    verdictPill.className = 'verdict-pill ' + verdict.cls;
+
+    barFill.style.width = score + '%';
+    thresholdMarker.style.left = Math.min(100, Math.max(0, threshold)) + '%';
+
+    // Update subtotals
+    state.sections.forEach((sec, i) => {
+      const subEl = document.getElementById(`sub-${i}`);
+      const maxEl = document.getElementById(`max-${i}`);
+      if (subEl) subEl.textContent = getSectionAchieved(sec);
+      if (maxEl) maxEl.textContent = getSectionMax(sec);
+    });
+
+    saveState();
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Global reset
+  function addGlobalReset() {
+    const footer = document.querySelector('.app-footer');
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = 'Reset all to defaults';
+    link.style.cssText = 'color:var(--text-dim);margin-left:12px;text-decoration:underline;';
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (confirm('Reset the entire checklist to defaults? All custom edits will be lost.')) {
+        state = structuredClone(defaultData);
+        thresholdInput.value = state.threshold;
+        renderPanels();
+        updateAll();
+      }
+    });
+    footer.appendChild(document.createTextNode(' · '));
+    footer.appendChild(link);
+  }
+
+  // Init
+  thresholdInput.value = state.threshold;
+  thresholdInput.addEventListener('input', () => {
+    state.threshold = Number(thresholdInput.value) || 0;
+    updateAll();
+  });
+
+  renderPanels();
+  updateAll();
+  addGlobalReset();
+
+})();
+</script>
+
+</body>
+</html>
